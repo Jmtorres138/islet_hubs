@@ -136,7 +136,7 @@ inter.df <- build_interactions_df()
 ```{r}
 
 imperial.df <- rbind(reg.df,broad.df,narrow.df,inter.df)
-write.table(imperial.df,file=work.dir %&% "imperial-annotations.txt",
+write.table(imperial.df,file=work.dir %&% "imperial-annotations.bed",
             sep="\t",quote=FALSE,row.names=FALSE,col.names=FALSE)
 
 ```
