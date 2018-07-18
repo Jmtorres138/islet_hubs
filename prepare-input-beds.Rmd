@@ -1,0 +1,143 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup 
+
+```{r}
+
+"%&%" <- function(a,b) paste0(a,b)
+
+library("tidyverse")
+library("data.table")
+
+serv.dir <- "/home/jason/science/servers/FUSE5/"
+
+work.dir <- serv.dir %&% "projects/islet_hubs/"
+data.dir <- serv.dir %&% "datasets/from_Jorge/"
+
+```
+
+
+```{r}
+
+reg.df <- fread(data.dir %&% "Islet_regulome.bed")
+hub.df <- fread(data.dir %&% "Islet_enhancer_hubs.txt")
+hic.df <- fread(data.dir %&% "Islet_pcHiC_washU.txt",sep="\t")
+
+```
+
+
+Build hub bed 
+
+
+```{r}
+
+build_broad <- function(){
+  pb <- txtProgressBar(min=0,max=dim(hub.df)[1],style=3)
+  out.df <- c()
+  for (i in 1:dim(hub.df)[1]){
+    setTxtProgressBar(pb,i)
+    sub <- hub.df[i,]$HUB_coord
+    chrom <- strsplit(x=sub,split=":")[[1]][1]
+    pos0 <- ((strsplit(x=sub,split=":")[[1]][2]) %>% 
+               strsplit(.,split="-"))[[1]][1] %>% as.integer(.)
+    pos <- ((strsplit(x=sub,split=":")[[1]][2]) %>% 
+               strsplit(.,split="-"))[[1]][2]  %>% as.integer(.)
+    df <- data.frame(chrom,pos0,pos,stringsAsFactors = FALSE)
+    out.df <- rbind(out.df,df)
+  }
+  out.df$name <- "Broad_Hub"
+  names(out.df) <- c("V1","V2","V3","V4")
+  return(out.df)
+}
+
+build_narrow <- function(){
+  pb <- txtProgressBar(min=0,max=dim(hub.df)[1],style=3)
+  out.df <- c()
+  for (i in 1:dim(hub.df)[1]){
+    setTxtProgressBar(pb,i)
+    subA <- hub.df[i,]$bait
+    subB <- hub.df[i,]$enh
+
+    chromA <- strsplit(x=subA,split=",")[[1]][1]
+    pos0A <- strsplit(x=subA,split=",")[[1]][2] %>% as.integer(.)
+    posA <-  strsplit(x=subA,split=",")[[1]][3] %>% as.integer(.)
+    dfA <- data.frame(chrom,pos0A,posA,stringsAsFactors = FALSE)
+    names(dfA) <- c("V1","V2","V3")
+    
+    chromB <- strsplit(x=subB,split=",")[[1]][1]
+    pos0B <- strsplit(x=subB,split=",")[[1]][2] %>% as.integer(.)
+    posB <-  strsplit(x=subB,split=",")[[1]][3] %>% as.integer(.)
+    dfB <- data.frame(chrom,pos0B,posB,stringsAsFactors = FALSE)
+    names(dfB) <- c("V1","V2","V3")
+    
+    out.df <- rbind(out.df,dfA)
+    out.df <- rbind(out.df,dfB)
+
+  }
+  out.df$name <- "Narrow_Hub"
+  names(out.df) <- c("V1","V2","V3","V4")
+  return(out.df)
+}
+
+build_interactions_df <- function(){
+  pb <- txtProgressBar(min=0,max=dim(hic.df)[1],style=3)
+  out.df <- c()
+  for (i in 1:dim(hic.df)[1]){
+    setTxtProgressBar(pb,i)
+    subA <- hic.df[i,]$V1
+    subB <- hic.df[i,]$V2
+
+    chromA <- strsplit(x=subA,split=",")[[1]][1]
+    pos0A <- strsplit(x=subA,split=",")[[1]][2] %>% as.integer(.)
+    posA <-  strsplit(x=subA,split=",")[[1]][3] %>% as.integer(.)
+    dfA <- data.frame(chrom,pos0A,posA,stringsAsFactors = FALSE)
+    names(dfA) <- c("V1","V2","V3")
+    
+    chromB <- strsplit(x=subB,split=",")[[1]][1]
+    pos0B <- strsplit(x=subB,split=",")[[1]][2] %>% as.integer(.)
+    posB <-  strsplit(x=subB,split=",")[[1]][3] %>% as.integer(.)
+    dfB <- data.frame(chrom,pos0B,posB,stringsAsFactors = FALSE)
+    names(dfB) <- c("V1","V2","V3")
+    
+    out.df <- rbind(out.df,dfA)
+    out.df <- rbind(out.df,dfB)
+    
+
+  }
+  out.df$name <- "pcHiC"
+  names(out.df) <- c("V1","V2","V3","V4")
+  out.df <- out.df[!duplicated(out.df),]
+  return(out.df)  
+}
+
+```
+
+
+```{r}
+
+broad.df <- build_broad()
+broad.df <- broad.df[!duplicated(broad.df),]
+
+narrow.df <- build_narrow()
+narrow.df <- narrow.df[!duplicated(narrow.df),] 
+
+inter.df <- build_interactions_df()
+
+```
+
+
+```{r}
+
+imperial.df <- rbind(reg.df,broad.df,narrow.df,inter.df)
+write.table(imperial.df,file=work.dir %&% "imperial-annotations.txt",
+            sep="\t",quote=FALSE,row.names=FALSE)
+
+```
+
