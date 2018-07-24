@@ -1,0 +1,93 @@
+---
+title: "functional_credible_sets.Rmd"
+author: "Jason Torres"
+date: "May 22, 2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Constructing functional (fgwas) credible sets from the fgwas model with the best cross validated likelihood
+
+# Setup
+
+```{r}
+
+"%&%" <- function(a,b) paste0(a,b)
+
+library("data.table")
+library("dplyr")
+library("ggplot2")
+library("GenomicRanges")
+
+serv.dir <- "/Users/jtorres/FUSE/"
+
+work.dir <- serv.dir %&% "projects/t2d-integration/fgwas/diagram_hrc/cross_tissue/multi_tissue_joint_analysis/"
+fgwas.output.dir <- work.dir %&% "fgwas_output/"
+eur.dir <- serv.dir %&% "projects/t2d-integration/fgwas/diagram_hrc/ukbb-diamante-euro-manuscript/"
+
+
+
+cred.set.dir <- work.dir %&% "credible_sets/"
+
+pre <- fgwas.output.dir %&% "fgwas_run_loci-partition"  
+
+```
+
+
+```{r}
+
+
+get_loci_blocks <- function(save.prefix){
+  loc.df <- fread(eur.dir%&%"t2d-loci-regions.txt")
+  names(loc.df) <- c("CHR","Start","End")
+  loc.gr <- GRanges(seqnames=loc.df$CHR,IRanges(loc.df$Start,loc.df$End))
+  blk.df <- fread("cat " %&% pre %&% ".segbfs.gz" %&% " | zmore")
+  blk.gr <- GRanges(seqnames=blk.df$chr,IRanges(blk.df$st,blk.df$sp))
+  keep.gr <- blk.gr[blk.gr%over%loc.gr]
+  out.df <- c()
+  pb <- txtProgressBar(min=0,max=dim(loc.df)[1],style=3)
+  for (i in 1:length(loc.gr)){
+    setTxtProgressBar(pb,i)
+    build.gr <- blk.gr[blk.gr%over%loc.gr[i]]
+    chrom.vec <- as.character(seqnames(build.gr))
+    start.vec <- start(build.gr)
+    end.vec <- end(build.gr)
+    build.df <- filter(blk.df,chr%in%chrom.vec,st%in%start.vec,sp%in%end.vec)
+    SEGNUMBER <- rep(i,length(chrom.vec))
+    build.df <- cbind(SEGNUMBER,build.df) %>% arrange(desc(PPA))
+    out.df <- rbind(out.df,build.df[1,])
+  }
+  sig.blk.df <- dplyr::select(out.df,one_of("SEGNUMBER","chr","st","sp","PPA","NSNP"))
+
+  names(sig.blk.df) <- c("SEGNUMBER","CHR","blk.start","blk.end","blk.PPA","blk.NSNP")
+
+
+  write.table(x=sig.blk.df,file = work.dir %&% save.prefix %&%".txt",
+              sep="\t",quote=FALSE,row.names=FALSE)
+  saveRDS(object=sig.blk.df,file=work.dir%&%save.prefix%&%".df.RDS")
+  print("Proportion of blocks with cummulative PPA >= 0.9: " %&%
+          (dim(filter(sig.blk.df,blk.PPA>=0.9))[1]/(dim(sig.blk.df)[1])))
+  print("Proportion of blocks with cummulative PPA >= 0.8: " %&%
+          (dim(filter(sig.blk.df,blk.PPA>=0.8))[1]/(dim(sig.blk.df)[1])))
+  print("Proportion of blocks with cummulative PPA >= 0.5: " %&%
+          (dim(filter(sig.blk.df,blk.PPA>=0.5))[1]/(dim(sig.blk.df)[1])))
+  return(sig.blk.df)
+}
+
+loc.blk.df <- get_loci_blocks("fgwas_blk-t2d_loci_151")
+
+```
+
+
+# Subset fgwas SNP output file to SNP in significant blocks
+
+
+```{bash}
+
+python subset_to_seg.py pre fgwas_blk-t2d_loci_151.txt
+
+```
