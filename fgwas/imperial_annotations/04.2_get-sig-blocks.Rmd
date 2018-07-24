@@ -23,11 +23,13 @@ library("dplyr")
 library("ggplot2")
 library("GenomicRanges")
 
-serv.dir <- "/Users/jtorres/FUSE/"
+serv.dir <- "/home/jason/science/servers/FUSE5/"
+serv.dir1 <- "/home/jason/science/servers/FUSE/"
 
-work.dir <- serv.dir %&% "projects/t2d-integration/fgwas/diagram_hrc/cross_tissue/multi_tissue_joint_analysis/"
+work.dir <- serv.dir %&% "projects/islet_hubs/fgwas/imperial_annotations/"
 fgwas.output.dir <- work.dir %&% "fgwas_output/"
-eur.dir <- serv.dir %&% "projects/t2d-integration/fgwas/diagram_hrc/ukbb-diamante-euro-manuscript/"
+
+eur.dir <- serv.dir1 %&% "projects/t2d-integration/fgwas/diagram_hrc/ukbb-diamante-euro-manuscript/"
 
 
 
