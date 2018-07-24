@@ -24,8 +24,8 @@ library("tidyverse")
 library("gridExtra")
 library("viridis")
 
-serv.dir <- "/Users/jtorres/FUSE/"
-fgwas.dir <- serv.dir %&% "projects/t2d-integration/fgwas/diagram_hrc/cross_tissue/multi_tissue_joint_analysis/"
+serv.dir <- "/home/jason/science/servers/FUSE5/"
+fgwas.dir <- serv.dir %&% "projects/islet_hubs/fgwas/oxford_and_imperial/"
 annot.file <- fgwas.dir %&% "fgwas_input/annotation_key-file.txt"
 plot.dir <- fgwas.dir %&% "plots/"
 
