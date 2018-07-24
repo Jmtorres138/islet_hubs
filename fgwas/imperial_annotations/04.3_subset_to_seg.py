@@ -10,8 +10,8 @@ import sys,os,gzip
 
 
 # globals
-server_dir = "/well/got2d/jason/"
-work_dir = server_dir + "projects/t2d-integration/fgwas/diagram_hrc/cross_tissue/multi_tissue_joint_analysis/"
+server_dir = "/well/mccarthy/users/jason/"
+work_dir = server_dir + "projects/islet_hubs/fgwas/imperial_annotations/"
 pre = work_dir + "fgwas_output/" + "fgwas_run_loci-partition" #sys.argv[1]
 sig_block_file = work_dir + "fgwas_blk-t2d_loci_151.txt" # sys.argv[2]
 # functions

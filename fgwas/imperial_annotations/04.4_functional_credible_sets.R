@@ -10,9 +10,9 @@ library("ggplot2")
 library("purrr")
 library(GenomicRanges)
 
-serv.dir <- "/well/got2d/jason/"
+serv.dir <- "/well/mccarthy/users/jason/"
 
-work.dir <- serv.dir %&% "projects/t2d-integration/fgwas/diagram_hrc/cross_tissue/multi_tissue_joint_analysis/"
+work.dir <- serv.dir %&% "projects/islet_hubs/fgwas/imperial_annotations/"
 fgwas.output.dir <- work.dir %&% "fgwas_output/"
 
 cred.set.dir <- work.dir %&% "credible_sets/"
