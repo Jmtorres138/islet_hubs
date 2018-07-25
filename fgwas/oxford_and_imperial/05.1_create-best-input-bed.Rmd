@@ -33,7 +33,7 @@ output.dir <- fgwas.dir %&% "conditional/fgwas_input_files/"
 
 ```{r}
 
-bed.df <- fread(fgwas.in.dir %&% "anno_input.bed")
+bed.df <- fread(fgwas.in.dir %&% "annot_input-impoxf.bed")
 key.df <- fread(fgwas.in.dir %&% "annotation_key-file.txt")
 best.df <- fread(fgwas.out.dir %&% best.joint.model.file.prefix %&% ".params") %>% filter(parameter!="pi_region")
 best.df$parameter <- gsub("_ln","",best.df$parameter) %>% gsub("_0_5000","",.)
