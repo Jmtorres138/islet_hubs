@@ -1,0 +1,70 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup  
+
+```{r}
+"%&%" <- function(a,b) paste0(a,b)
+
+library("tidyverse")
+library("data.table")
+library("GenomicRanges")
+
+serv.dir <- "/home/jason/science/servers/FUSE5/"
+
+work.dir <- serv.dir %&% "projects/islet_hubs/"
+
+oxf.df <- fread(work.dir %&% "fgwas/imperial_annotations/fgwas_input/" %&% 
+                  "imperial-annotations.bed")
+imp.df <- fread(work.dir %&% "fgwas/oxford_and_imperial/fgwas_input/" %&% 
+                  "annot_input-impoxf.bed")
+
+annot.df <- rbind(oxf.df,imp.df)
+rm(oxf.df); rm(imp.df)
+
+```
+
+
+```{r}
+
+make_gr <- function(df){
+  gr <- GRanges(seqnames=df$V1,IRanges(df$V2,df$V3))
+  return(gr)
+}
+
+gr1 <- filter(annot.df,V4=="islet_activated_strong_enhancer") %>% 
+  make_gr(.) %>% reduce(.)
+gr2 <- filter(annot.df,V4=="Active_enhancers_I") %>% make_gr(.) %>%
+  reduce(.)
+
+
+both.gr <- append(gr1[gr1 %over% gr2],gr2[gr2%over%gr1]) %>% reduce(.)
+oxf.gr <- gr1[!(gr1 %over% both.gr)] %>% reduce(.)
+imp.gr <- gr2[!(gr2 %over% both.gr)] %>% reduce(.)
+
+a <- length(both.gr); b <- length(oxf.gr); c <- length(imp.gr)
+t <- a+b+c # 33640
+
+both.df <- both.gr %>% as.data.frame(.) %>% 
+  dplyr::select(.,one_of("seqnames","start","end"))
+oxf.df <- oxf.gr %>% as.data.frame(.) %>% 
+  dplyr::select(.,one_of("seqnames","start","end"))
+imp.df <- imp.gr %>% as.data.frame(.) %>% 
+  dplyr::select(.,one_of("seqnames","start","end"))
+both.df$V4 <- "shared"
+oxf.df$V4 <- "oxford_active_enhancer"
+imp.df$V4 <- "imperial_active_enhancer"
+
+out.df <- rbind(oxf.df,imp.df,both.df)
+
+
+write.table(out.df,file=work.dir %&% "fgwas/compare_enhancers/fgwas_input/anno-input.bed",sep="\t",quote=FALSE,
+            row.names=F,col.names=F)
+```
+
