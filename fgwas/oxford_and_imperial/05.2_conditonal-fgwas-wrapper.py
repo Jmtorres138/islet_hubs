@@ -49,7 +49,7 @@ def run_fgwas_input_job(gwas_bed):
     command_list = [python,home_dir+"05.0_build_fgwas_input.py",gwas_bed,out_file]
     command = " ".join(command_list)
     script='''
-#$ -N cond_%s
+#$ -N cond2_%s
 #$ -pe shmem 1
 #$ -P mccarthy.prjc
 #$ -q short.qc
@@ -151,7 +151,7 @@ def run_loc_job(loc_id):
     command6 = " ".join(command_list6)
 
     script='''
-#$ -N cond_%s
+#$ -N cond2_%s
 #$ -pe shmem 1
 #$ -P mccarthy.prjc
 #$ -q short.qc
