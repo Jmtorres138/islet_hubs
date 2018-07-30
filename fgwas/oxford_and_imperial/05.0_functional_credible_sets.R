@@ -18,7 +18,7 @@ fgwas.output.dir <- work.dir %&% "conditional/fgwas_output_files/" %&% loc.id %&
 #pre <- fgwas.output.dir %&% "fgwas_run_loci-partition"
 
 
-cred.set.dir <- serv.dir %&% "projects/islet_hubs/fgwas/imperial_annotations/credible_sets/"
+cred.set.dir <- serv.dir %&% "projects/islet_hubs/fgwas/oxford_and_imperial/credible_sets/"
 #output_file = work_dir+"conditional/fgwas_input_files/" + loc_id + "/" +"loci_block_snps.bfs.txt.gz"
 
 print("Making credible set file for locus: " %&% loc.id)
