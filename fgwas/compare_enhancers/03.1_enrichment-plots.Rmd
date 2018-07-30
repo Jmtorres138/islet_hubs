@@ -19,7 +19,7 @@ library("gridExtra")
 library("viridis")
 
 serv.dir <- "/home/jason/science/servers/FUSE5/"
-fgwas.dir <- serv.dir %&% "projects/islet_hubs/fgwas/imperial_annotations/"
+fgwas.dir <- serv.dir %&% "projects/islet_hubs/fgwas/compare_enhancers/"
 fgwas.out.dir <- fgwas.dir %&% "fgwas_output/"
 best.joint.model.file.prefix <- "best-joint-model"
 plot.dir <- fgwas.dir %&% "plots/"
@@ -88,7 +88,7 @@ build_param_df <- function(name.vec=NULL){
   print("There are " %&% dim(out.df)[1] %&% " annotations")
   print("There are " %&% dim(enriched)[1] %&% " annotations that are marginally ENRICHED")
   print("There are " %&% dim(depleted)[1] %&% " annotations that are marginally DEPLETED")
-  out.df <- rbind(enriched,depleted)
+  #out.df <- rbind(enriched,depleted)
   index <- as.logical(map(out.df$parameter, function(x){!(gsub("_ln","",x) %in% remove.vec)}))
   out.df <- out.df[index,]
 
