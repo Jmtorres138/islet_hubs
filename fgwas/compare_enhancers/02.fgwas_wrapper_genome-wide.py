@@ -16,7 +16,7 @@ import moniter_rescomp_jobs
 
 # globals
 fgwas = "LD_LIBRARY_PATH=/apps/well/gsl/2.2.1-gcc4.9.3/lib /users/mccarthy/jmtorres/software/fgwas-0.3.6/bin/fgwas"
-home_dir = "/well/mccarthy/users/jason/projects/islet_hubs/fgwas/imperial_annotations/"
+home_dir = "/well/mccarthy/users/jason/projects/islet_hubs/fgwas/compare_enhancers/"
 in_dir=home_dir+"fgwas_input/"
 out_dir = home_dir + "fgwas_output/"
 input_file=in_dir+"ukbb_diamante-euro.fgwas.gz" # Optional: Run 01.1 script and use this for abbreviated annotations: in_dir+"diagram_hrc.renamed.fgwas.gz"
@@ -29,7 +29,7 @@ if os.path.isdir(job_dir)==False:
 if os.path.isdir(log_dir)==False:
     os.mkdir(log_dir)
 start_index = 9 #0-based index of column in fgwas input file where annotations start
-job_prefix = "imp_"
+job_prefix = "enh_"
 iter_limit = 10 # set limit for the maximum number of annotation possible in the joint model
 
 def step1():

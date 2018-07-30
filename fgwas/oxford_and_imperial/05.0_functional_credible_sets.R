@@ -69,20 +69,21 @@ annot_refGene <- function(cred.df,segsnps.df){
   seg.vec <- sort(unique(segsnps.df$SEGNUMBER))
   snp.gr <- GRanges(cred.df$CHR,IRanges(cred.df$POS, cred.df$POS))
 
-  hg19.refseq.db <- makeTxDbFromUCSC(genome="hg19", table="refGene")
-  refseq.genes<- genes(hg19.refseq.db)
-  all.geneids <- elementMetadata(refseq.genes)$gene_id
-  all.genesymbols <- getSYMBOL(all.geneids, data='org.Hs.eg')
-  ref.df <- data.frame(gene.id=all.geneids,symbol=all.genesymbols,
-                       stringsAsFactors = FALSE)
-  elementMetadata(refseq.genes)$gene_id <- all.genesymbols
-  df <- as.data.frame(refseq.genes)
+  #hg19.refseq.db <- readRDS("hg19.refseq.db.RDS")#makeTxDbFromUCSC(genome="hg19", table="refGene")
+  #refseq.genes<- genes(hg19.refseq.db)
+  #all.geneids <- elementMetadata(refseq.genes)$gene_id
+  #all.genesymbols <- getSYMBOL(all.geneids, data='org.Hs.eg')
+  #ref.df <- data.frame(gene.id=all.geneids,symbol=all.genesymbols,
+  #                     stringsAsFactors = FALSE)
+  #elementMetadata(refseq.genes)$gene_id <- all.genesymbols
+  df <- readRDS("reference-genes.df.RDS")#as.data.frame(refseq.genes)
   sub.gr <- GRanges(seqnames=df$seqnames,
                     IRanges(start=df$start,end=df$end),
                     strand=rep("*",dim(df)[1]),
                     name=df$gene_id)
   nearestGenes <- nearest(snp.gr,sub.gr)
   res <- df$gene_id[nearestGenes]
+  refseq.genes <- readRDS("refseq.genes.RDS")
   dist <- distance(snp.gr, refseq.genes[nearestGenes])
   symbol <- res
   cred.df <- cbind(symbol,cred.df)
