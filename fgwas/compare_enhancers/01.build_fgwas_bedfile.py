@@ -10,10 +10,10 @@ import subprocess as sp
 
 # globals
 bedtools = "/apps/well/bedtools/2.24.0/bedtools" # intersect -a test.bed -b TFBS.bed -wb > mytest.bed"
-cur_dir = "/well/mccarthy/users/jason/projects/islet_hubs/fgwas/imperial_annotations/"
+cur_dir = "/well/mccarthy/users/jason/projects/islet_hubs/fgwas/compare_enhancers/"
 input_dir = cur_dir + "fgwas_input/"
 fgwas_head_list = ["CHR","POS0","POS","SNPID","F","Z","PVAL","NCASE","NCONTROL"]
-annot_bed_file = input_dir + "imperial-annotations.bed"
+annot_bed_file = input_dir + "anno-input.bed"
 gwas_bed_file = "/well/got2d/jason/reference/gwas/diamante-ukbb_hrc/ukbb_diamante-euro.bed"
 outfile = input_dir+"ukbb_diamante-euro.fgwas"
 
