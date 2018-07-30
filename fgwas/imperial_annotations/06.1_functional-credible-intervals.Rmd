@@ -28,9 +28,10 @@ serv.dir1 <- "/home/jason/science/servers/FUSE/"
 
 gwas.dir <- serv.dir1 %&% "reference/gwas/diamante-ukbb_hrc/"
 
-eur.dir <- serv.dir1 %&% "projects/islet_hubs/fgwas/imperial_annotations/"
+eur.dir <- serv.dir1 %&% 
+  "projects/t2d-integration/fgwas/diagram_hrc/ukbb-diamante-euro-manuscript/"
 
-work.dir <- serv.dir %&% "projects/islet_hubs/fgwas/imperial_annotations"
+work.dir <- serv.dir %&% "projects/islet_hubs/fgwas/imperial_annotations/"
 plot.dir <- work.dir %&% "plots/"
 
 cond.out.dir <- work.dir %&% "conditional/fgwas_output_files/"
@@ -159,6 +160,7 @@ build_appended_creddf <- function(block.df){
   out.df <- c()
   pb <- txtProgressBar(min=0,max=dim(block.df)[1],style=3)
   for (i in 1:dim(block.df)[1]){
+    print(i)
     setTxtProgressBar(pb,i)
     loc.id <- block.df$Locus.ID[i]
     seg <- block.df$SEGNUMBER[i]

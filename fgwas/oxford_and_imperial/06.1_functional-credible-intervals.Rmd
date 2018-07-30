@@ -28,7 +28,8 @@ serv.dir1 <- "/home/jason/science/servers/FUSE/"
 
 gwas.dir <- serv.dir1 %&% "reference/gwas/diamante-ukbb_hrc/"
 
-eur.dir <- serv.dir1 %&% "projects/islet_hubs/fgwas/oxford_and_imperial/"
+eur.dir <- serv.dir1 %&% 
+  "projects/t2d-integration/fgwas/diagram_hrc/ukbb-diamante-euro-manuscript/"
 
 work.dir <- serv.dir %&% "projects/islet_hubs/fgwas/oxford_and_imperial/"
 plot.dir <- work.dir %&% "plots/"
