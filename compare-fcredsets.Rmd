@@ -53,6 +53,7 @@ update_ids <- function(df){
   sym.vec <- c()
   pb <- txtProgressBar(min=0,max=dim(df)[1],style = 3)
   for (i in 1:dim(df)[1]){
+    #print(i)
     setTxtProgressBar(pb,i)
     id  <- df$Locus.ID[i]
     sym <- locid_to_symbol(id)
@@ -153,6 +154,9 @@ get_deltas <- function(df){
 
 
 ```{r}
+
+block3.df <- append_maxppa(block3.df,fcred3.df) 
+
 
 block1.df <- append_maxppa(block1.df,fcred1.df) 
 block1.df <- get_deltas(block1.df)
@@ -328,4 +332,39 @@ grid.draw(tab)
 
 ```
 
+
+```{r}
+improve.df <- dplyr::select(sub2,
+                            one_of("Locus.ID","symbol",
+                                   "CHR","fcred.num",
+                                   "maxppa.null",
+                                   "delta.maxppa.oxford",
+                                   "delta.maxppa.combined",
+                                   "comp2")) %>% 
+  arrange(.,comp2)
+
+improve.df$maxppa.null <- map(improve.df$Locus.ID,function(id){
+  (filter(cred.df,CondID==id) %>% arrange(.,desc(PPA)))$PPA[1]
+}) %>% as.numeric(.)
+improve.df$fcred.num <- map(improve.df$Locus.ID,function(id){
+  dim(filter(cred.df,CondID==id))[1]
+}) %>% as.integer(.)
+improve.df$ppa <- improve.df$maxppa.null + improve.df$delta.maxppa.combined
+
+names(improve.df) <- c("Locus.ID","symbol","CHR","num","maxppa.null",
+                       "delta.maxppa.oxford","delta.maxppa.combined","improvement",
+                       "max.ppa")
+improve.df$maxppa.null <- prettyNum(improve.df$maxppa.null,digits=3)
+improve.df$max.ppa <- prettyNum(improve.df$max.ppa,digits=3)
+improve.df$delta.maxppa.oxford <- prettyNum(improve.df$delta.maxppa.oxford,digits=3)
+improve.df$delta.maxppa.combined <- prettyNum(improve.df$delta.maxppa.combined,digits=3)
+improve.df$improvement <- prettyNum(improve.df$improvement,digits=3)
+
+library("grid");library("gridExtra")
+
+tab <- tableGrob(improve.df)
+ggsave(plot=tab,filename=work.dir%&%"tab2.png",height=20,width=20)
+grid.draw(tab)
+
+```
 
