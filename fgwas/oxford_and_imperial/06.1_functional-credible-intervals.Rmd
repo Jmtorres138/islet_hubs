@@ -1,0 +1,286 @@
+---
+title: "credible intervals"
+author: "Jason Torres"
+date: "September 26, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+NOTE: Here block (blk) positions correspond to the SNP start/end coordinates whereas chunk represents the coordinates in the partition BED file per se
+
+# Setup
+
+```{r}
+
+
+"%&%" <- function(a,b) paste0(a,b)
+library("data.table")
+library("dplyr")
+library("ggplot2")
+library(GenomicRanges)
+
+serv.dir <- "/home/jason/science/servers/FUSE5/"
+serv.dir1 <- "/home/jason/science/servers/FUSE/"
+
+gwas.dir <- serv.dir1 %&% "reference/gwas/diamante-ukbb_hrc/"
+
+eur.dir <- serv.dir1 %&% 
+  "projects/t2d-integration/fgwas/diagram_hrc/ukbb-diamante-euro-manuscript/"
+
+work.dir <- serv.dir %&% "projects/islet_hubs/fgwas/oxford_and_imperial/"
+plot.dir <- work.dir %&% "plots/"
+
+cond.out.dir <- work.dir %&% "conditional/fgwas_output_files/"
+
+cred.set.dir <- work.dir %&% "credible_sets/"
+bed.dir <- eur.dir %&% "partition_bedfiles/"
+
+manual.vec <- c("86_1","87_1","132_1","132_2","132_3","132_4","132_5",
+  "133_1","133_2","133_3","133_4","133_5","133_6","133_7","133_8","133_9","133_10","210_1","210_2")
+missing.vec = c("20_1","86_2","87_2","163_2","164_2")
+
+
+
+```
+
+
+Build (genetic) locus reference data frame
+
+
+```{r}
+
+build_loc_ref_df <- function(){
+  non.cond.df <- fread(gwas.dir %&% "list.of.loci.single.signal.AMah31082017.txt")
+  names(non.cond.df) <- c("CHR","POS","Locus.ID")
+  cond.df <- fread(gwas.dir %&% "conditioned/list.for.credible.sets.ALL.txt")
+  names(cond.df) <- c("CHR","POS","Locus.ID")
+  out.df <- rbind(non.cond.df,cond.df) %>% arrange(CHR,POS)
+  out.df <- out.df[!duplicated(out.df),] # no duplicates but just in case
+  return(out.df)
+}
+
+```
+
+
+# Functions
+
+Function to get matching block info for each loc.id
+
+```{r}
+
+get_block_info <- function(loc.id){
+  if (loc.id %in% manual.vec | loc.id %in% missing.vec){
+    # manual
+    blk.df <- fread(cond.out.dir %&% loc.id %&%"/" %&% "fgwas_blk.txt")
+    bed.df <- fread(bed.dir %&% "loci-partition-" %&% loc.id %&% ".bed")
+  } else if (grepl("_",loc.id)){
+    # conditional
+    cond.num <- strsplit(loc.id,split="_")[[1]][2]
+    blk.df <- fread(cond.out.dir %&% "cond"%&%cond.num%&%"/" %&% "fgwas_blk.txt")
+    bed.df <- fread(bed.dir %&% "loci-partition-cond" %&% cond.num %&% ".bed")
+  } else if (loc.id %in% loc.ref.df$Locus.ID){
+    # single
+    blk.df <- fread(work.dir %&% "fgwas_blk-t2d_loci_151.txt")
+    bed.df <- fread(eur.dir %&% "loci-partition.bed")
+  } else {
+    stop("Not a valid entry")
+  }
+  loc.chrom <- "chr" %&% filter(loc.ref.df,Locus.ID==loc.id)$CHR
+  loc.pos <- filter(loc.ref.df,Locus.ID==loc.id)$POS
+  blk <- filter(blk.df,CHR==loc.chrom,blk.start<=loc.pos,blk.end>=loc.pos)
+  if (dim(blk)[1]==0){
+    blk <- data.frame("SEGNUMBER"=NA,"CHR"=NA,"blk.start"=NA,"blk.end"=NA,
+    "blk.PPA"=NA,"blk.NSNP"=NA)
+  }
+  out.df <- cbind("Locus.ID"=rep(loc.id,dim(blk)[1]),"loc.pos"=rep(loc.pos,dim(blk)[1]),blk)
+  cnk <- filter(bed.df,V1==loc.chrom,V2<=loc.pos,V3>=loc.pos)
+  #print(loc.id);print(loc.pos);print(blk);print(cnk)
+  if (dim(cnk)[1] > 0){
+    out.df$chunk.start <- cnk$V2
+    out.df$chunk.end <- cnk$V3
+    out.df$chunk.len <- cnk$V3-cnk$V2    
+  } else{
+    out.df$chunk.start <- NA
+    out.df$chunk.end <- NA
+    out.df$chunk.len <- NA    
+  }
+  return(out.df)
+}
+
+build_block_df <- function(loc.ref.df){
+  loc.ids <- loc.ref.df$Locus.ID
+  #keep.index <- sapply(1:length(loc.ids),function(i){!grepl("_2",loc.ids[i])}) # temporary as condition 2 still running
+  #loc.ids <- loc.ids[keep.index] # temporary as above
+  out.df <- c()
+  print(length(unique(loc.ids)))
+  pb <- txtProgressBar(min=0,max=length(loc.ids),style=3)
+  for (i in 1:length(loc.ids)){
+    setTxtProgressBar(pb,i)
+    loc.id <- loc.ids[i]
+    build.df <- get_block_info(loc.id)
+    out.df <- rbind(out.df,build.df)
+  }
+  out.df$Locus.ID <- as.character(out.df$Locus.ID)
+  out.df$blk.len <- out.df$blk.end - out.df$blk.start
+  return(out.df)
+}
+
+
+```
+
+Build credible set file with correct Locus ID information
+
+```{r}
+
+get_fcred_set <- function(loc.id, seg, credset = "99"){
+  if (loc.id %in% manual.vec | loc.id %in% missing.vec){
+    # manual
+    cred.df <- fread(cred.set.dir %&% "fgwas_credsets_" %&% credset %&% "-" %&% loc.id %&% ".txt")
+  } else if (grepl("_",loc.id)){
+    # conditional
+    cond.num <- strsplit(loc.id,split="_")[[1]][2]
+    cred.df <- fread(cred.set.dir %&% "fgwas_credsets_" %&% credset %&% "-cond" %&% cond.num %&% ".txt")
+  } else if (loc.id %in% loc.ref.df$Locus.ID){
+    # single
+    cred.df <- fread(cred.set.dir %&% "fgwas_credsets_" %&% credset %&% ".txt")
+  } else {
+    stop("Not a valid entry")
+  }  
+  out.df <- filter(cred.df,SEGNUMBER==seg)
+  out.df <- cbind("Locus.ID"=rep(loc.id,dim(out.df)[1]),out.df)
+  out.df$Locus.ID <- as.character(out.df$Locus.ID)
+  return(out.df)
+}
+
+build_appended_creddf <- function(block.df){
+  out.df <- c()
+  pb <- txtProgressBar(min=0,max=dim(block.df)[1],style=3)
+  for (i in 1:dim(block.df)[1]){
+    setTxtProgressBar(pb,i)
+    loc.id <- block.df$Locus.ID[i]
+    seg <- block.df$SEGNUMBER[i]
+    build.df <- get_fcred_set(loc.id,seg,credset="99")
+    out.df <- rbind(out.df,build.df)
+  }
+  return(out.df)
+}
+
+```
+
+
+# Generate data frames
+
+```{r}
+
+loc.ref.df <- build_loc_ref_df()
+block.df <- build_block_df(loc.ref.df)
+fcred.df <- build_appended_creddf(block.df)
+
+block.df$fcred.num <- sapply(1:dim(block.df)[1],function(i){
+  loc.id <- block.df$Locus.ID[i]
+  sub.df <- filter(fcred.df,Locus.ID==loc.id)
+  fcred.num <- dim(sub.df)[1]
+  return(fcred.num)
+})
+block.df$fcred.start <- sapply(1:dim(block.df)[1],function(i){
+  loc.id <- block.df$Locus.ID[i]
+  sub.df <- filter(fcred.df,Locus.ID==loc.id)
+  fcred.start <- min(sub.df$POS)
+  return(as.integer(fcred.start))
+})
+block.df$fcred.end <- sapply(1:dim(block.df)[1],function(i){
+  loc.id <- block.df$Locus.ID[i]
+  sub.df <- filter(fcred.df,Locus.ID==loc.id)
+  fcred.end <- max(sub.df$POS)
+  return(as.integer(fcred.end))
+})
+block.df$fcred.len <- sapply(1:dim(block.df)[1],function(i){
+  loc.id <- block.df$Locus.ID[i]
+  sub.df <- filter(fcred.df,Locus.ID==loc.id)
+  fcred.start <- min(sub.df$POS);fcred.end <- max(sub.df$POS)
+  fcred.len <- fcred.end - fcred.start
+  return(as.integer(fcred.len))
+})
+block.df$refseq <- sapply(1:dim(block.df)[1],function(i){
+  loc.id <- block.df$Locus.ID[i]
+  refseq <- filter(fcred.df,Locus.ID==loc.id)$symbol[1]
+  return(refseq)
+})
+
+
+write.table(x=block.df,file=cred.set.dir %&% "results_blocks.txt",sep="\t",
+            quote=F,row.names=F)
+write.table(x=fcred.df,file=cred.set.dir %&% "results_func-cred-sets.txt",sep="\t",
+            quote=F,row.names=F)
+
+```
+
+
+```{r}
+
+over.index <- (block.df$loc.pos >= block.df$fcred.start & block.df$loc.pos <= block.df$fcred.end)
+block.df[!(over.index),]
+
+loc.id <- unique(fcred.df$Locus.ID)
+max.ppa <- map(loc.id,function(x){filter(fcred.df,Locus.ID==x) %>% arrange(desc(PPA)) %>% head(1)})
+max.df <- rbindlist(max.ppa)
+write.table(x=max.df,file=plot.dir %&% "topPPA.txt",sep="\t",
+            quote=F,row.names=F)
+```
+
+
+
+
+
+
+
+# Save table plots
+
+```{r}
+
+library("gridExtra")
+library("grid")
+
+#plot.dir <- "/Users/jtorres/Google Drive/Science/Projects/t2d-integration/fgwas/diagram_hrc/ukbb-diamante-euro-manuscript/table_plots/"
+
+tab.df <- dplyr::select(block.df,one_of("CHR","loc.pos","Locus.ID","refseq","fcred.start","fcred.end","fcred.num"))
+names(tab.df) <- c("Chrom","Lead SNP position","Locus ID", "RefSeq",
+                   "Interval start", "Interval end","Number of variants")
+tab.df1 <- tab.df[1:50,]
+tab.df2 <- tab.df[51:100,]
+tab.df3 <- tab.df[101:150,]
+tab.df4 <- tab.df[151:200,]
+tab.df5 <- tab.df[201:250,]
+tab.df6 <- tab.df[251:300,]
+tab.df7 <- tab.df[301:350,]
+tab.df8 <- tab.df[351:408,]
+
+
+tab1 <- tableGrob(tab.df1)
+tab2 <- tableGrob(tab.df2)
+tab3 <- tableGrob(tab.df3)
+tab4 <- tableGrob(tab.df4)
+tab5 <- tableGrob(tab.df5)
+tab6 <- tableGrob(tab.df6)
+tab7 <- tableGrob(tab.df7)
+tab8 <- tableGrob(tab.df8)
+
+ggsave(tab1,filename = plot.dir %&% "fcred_table_part1.png",height=20,width=12)
+ggsave(tab2,filename = plot.dir %&% "fcred_table_part2.png",height=20,width=12)
+ggsave(tab3,filename = plot.dir %&% "fcred_table_part3.png",height=20,width=12)
+ggsave(tab4,filename = plot.dir %&% "fcred_table_part4.png",height=20,width=12)
+ggsave(tab5,filename = plot.dir %&% "fcred_table_part5.png",height=20,width=12)
+ggsave(tab6,filename = plot.dir %&% "fcred_table_part6.png",height=20,width=12)
+ggsave(tab7,filename = plot.dir %&% "fcred_table_part7.png",height=20,width=12)
+ggsave(tab8,filename = plot.dir %&% "fcred_table_part8.png",height=20,width=12)
+
+write.table(x=block.df,file=plot.dir %&% "results_blocks.txt",sep="\t",
+            quote=F,row.names=F)
+write.table(x=fcred.df,file=plot.dir %&% "results_func-cred-sets.txt",sep="\t",
+            quote=F,row.names=F)
+
+```
