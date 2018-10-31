@@ -1,0 +1,46 @@
+---
+title: "05.1"
+author: "Jason Torres"
+date: "November 2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Setup libraries and directories
+
+```{r}
+
+"%&%" <- function(a,b) paste0(a,b)
+library("data.table")
+library("tidyverse")
+
+serv.dir <- "/home/jason/science/servers/FUSE5/"
+
+fgwas.dir <- serv.dir %&% "projects/islet_hubs/fgwas/imperial_annotations/"
+fgwas.in.dir <- fgwas.dir %&% "fgwas_input/"
+fgwas.out.dir <- fgwas.dir %&% "fgwas_output/"
+best.joint.model.file.prefix <- "best-joint-model"
+
+output.dir <- fgwas.dir %&% "conditional/fgwas_input_files/"
+
+```
+
+# Create and write input file
+
+
+```{r}
+
+bed.df <- fread(fgwas.in.dir %&% "imperial-annotations.bed")
+key.df <- fread(fgwas.in.dir %&% "annotation_key-file.txt")
+best.df <- fread(fgwas.out.dir %&% best.joint.model.file.prefix %&% ".params") %>% filter(parameter!="pi_region")
+best.df$parameter <- gsub("_ln","",best.df$parameter) %>% gsub("_0_5000","",.)
+best.df$parameter <- as.character(map(best.df$parameter,function(x){filter(key.df,Key==x)$Annotation}))
+
+keep.df <- filter(bed.df, V4 %in% best.df$parameter)
+write.table(x=keep.df,file=output.dir %&% "best_anno_input.bed",sep="\t",row.names=F,col.names=F,quote=F)
+
+
+```
