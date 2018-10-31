@@ -1,0 +1,55 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup 
+
+```{r}
+
+"%&%" <- function(a,b) paste0(a,b)
+
+library("tidyverse")
+library("data.table")
+
+serv.dir <- "/home/jason/science/servers/FUSE5/"
+
+work.dir <- serv.dir %&% "projects/islet_hubs/"
+data.dir <- work.dir %&% "input_data/"
+
+```
+
+
+```{r}
+
+reg.df <- fread(data.dir %&% "Islet_regulome_simplified.bed")
+hub.df <- fread(data.dir %&% "hub_annotations_ActivePromotersActiveEnhancers_for_Jason.bed")
+hub.df$V4 <- "HUB_" %&% hub.df$V4
+
+inside.df <- fread(data.dir %&% "classI_inside_hubs.bed")[,1:3]
+inside.df$V4 <- "Inside_HUB"
+outside.df <- fread(data.dir %&% "classI_outside_hubs.bed")[,1:3]
+outside.df$V4 <- "Outside_HUB"
+
+```
+
+
+```{r}
+
+annot.df <- rbind(reg.df,hub.df,inside.df,outside.df)
+
+```
+
+
+
+```{r}
+
+write.table(annot.df,file=work.dir %&% "imperial-annotations.bed",
+            sep="\t",quote=FALSE,row.names=FALSE,col.names=FALSE)
+
+```
+
