@@ -126,7 +126,7 @@ def run_loc_job(loc_id):
     command_list1 = [rscript,"--vanilla",home_dir+" 05.0_conditional-create-bed.R",loc_id]
     command1 = " ".join(command_list1)
 
-    annot_list = get_annot_list(best_param_file)
+    annot_list = get_annot_list(best_param_file,key=False)
     if "distance_tss" in annot_list:
         a_list = list(annot_list)
         a_list.remove("distance_tss")
@@ -201,8 +201,8 @@ def run_cred_sets():
 def main():
 
     #build_all_inputs()
-    #run_all_loci()
-    run_cred_sets()
+    run_all_loci()
+    #run_cred_sets()
 
 
 if (__name__=="__main__"): main()
