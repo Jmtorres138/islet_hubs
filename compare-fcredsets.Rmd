@@ -1,0 +1,370 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+
+```{r}
+
+"%&%" <- function(a,b) paste0(a,b)
+library("data.table")
+library("dplyr")
+library("ggplot2")
+library("GenomicRanges")
+
+serv.dir <- "/home/jason/science/servers/FUSE5/"
+serv.dir1 <- "/home/jason/science/servers/FUSE/"
+
+gwas.dir <- serv.dir1 %&% "reference/gwas/diamante-ukbb_hrc/"
+
+eur.dir <- serv.dir1 %&% 
+  "projects/t2d-integration/fgwas/diagram_hrc/ukbb-diamante-euro-manuscript/"
+
+work.dir <- serv.dir %&% "projects/islet_hubs/fgwas/"
+
+cred.df <- fread(serv.dir %&% "projects/t2d_classification/method_C/genetic_credible_sets/gencred.txt")
+keep.ids <- cred.df$CondID %>% unique(.)
+
+
+
+```
+
+
+```{r}
+
+locid_to_symbol <- function(loc.id){
+  return(filter(cred.df,CondID==loc.id)$symbol %>% as.character(.) %>% unique(.))
+}
+
+update_ids <- function(df){
+  df$Locus.ID <- map(df$Locus.ID,function(id){
+    if (grepl("_",id)==FALSE){
+      id <- id %&% "_1"
+    }
+    return(id)
+  }) %>% as.character(.)
+  
+  df <- filter(df,Locus.ID %in% keep.ids)
+  sym.vec <- c()
+  pb <- txtProgressBar(min=0,max=dim(df)[1],style = 3)
+  for (i in 1:dim(df)[1]){
+    #print(i)
+    setTxtProgressBar(pb,i)
+    id  <- df$Locus.ID[i]
+    sym <- locid_to_symbol(id)
+    sym.vec <- append(sym.vec,sym)
+  }
+  df$symbol <- sym.vec
+  return(df)
+}
+
+```
+
+
+
+```{r}
+
+block1.df <- fread(work.dir %&% "imperial_annotations/credible_sets/" %&% 
+                    "results_blocks.txt") %>% update_ids(.)
+block2.df <- fread(work.dir %&% "oxford_and_imperial/credible_sets/" %&% 
+                    "results_blocks.txt") %>% update_ids(.)
+fcred1.df <- fread(work.dir %&% "imperial_annotations/credible_sets/" %&% 
+                    "results_func-cred-sets.txt") %>% update_ids(.)
+fcred2.df <- fread(work.dir %&% "oxford_and_imperial/credible_sets/" %&% 
+                    "results_func-cred-sets.txt") %>% update_ids(.)
+
+```
+
+
+```{r}
+
+block3.df <- fread(serv.dir1 %&%
+                     "projects/t2d-integration/fgwas/diagram_hrc/ukbb-diamante-euro-manuscript/null/credible_sets/" %&% 
+                    "null_results_blocks.txt") %>% update_ids(.)
+block4.df <- fread(serv.dir1 %&% "projects/t2d-integration/fgwas/diagram_hrc/ukbb-diamante-euro-manuscript/credible_sets/" %&% 
+                    "results_blocks.txt") %>% update_ids(.)
+fcred3.df <- fread(serv.dir1 %&%
+                     "projects/t2d-integration/fgwas/diagram_hrc/ukbb-diamante-euro-manuscript/null/credible_sets/" %&% 
+                    "null_results_func-cred-sets.txt") %>% update_ids(.)
+fcred4.df <- fread(serv.dir1 %&% "projects/t2d-integration/fgwas/diagram_hrc/ukbb-diamante-euro-manuscript/credible_sets/" %&% 
+                    "results_func-cred-sets.txt") %>% update_ids(.)
+
+```
+
+
+
+```{r}
+
+locid_to_symbol <- function(loc.id){
+  return(filter(cred.df,Locus.ID==loc.id)$symbol %>% as.character(.) %>% unique(.))
+}
+
+map_condids <- function(df){
+  Cond.ID <- map(1:dim(df)[1],function(i){
+    filter(cred.df,Locus.ID==df$Locus.ID[i])$CondID %>% unique(.)
+  }) %>% as.character(.)
+  df$Locus.ID <- Cond.ID
+  return(df)
+}
+
+```
+
+
+```{r}
+
+append_maxppa <- function(df1,df2){
+  maxppa <- c()
+  pb <- txtProgressBar(min=0,max=dim(df1)[1],style=3)
+  for (i in 1:dim(df1)[1]){
+    setTxtProgressBar(pb,i)
+    id <- df1$Locus.ID[i]
+    sub <- filter(df2,Locus.ID==id) %>% arrange(.,desc(PPA))
+    val <- sub$PPA[1]
+    maxppa <- append(maxppa,val)
+  }
+  df1$maxppa <- maxppa
+  return(df1)
+}
+
+get_deltas <- function(df){
+  delta.maxppa <- c()
+  delta.num <- c()
+  pb <- txtProgressBar(min=0,max=dim(df)[1],style=3)
+  for (i in 1:dim(df)[1]){
+    setTxtProgressBar(pb,i)
+    id <- df$Locus.ID[i]
+    val1 <- filter(df,Locus.ID==id)$maxppa[1] - (filter(cred.df,CondID==id) %>% arrange(.,desc(PPA)))$PPA[1]
+    val2 <- filter(df,Locus.ID==id)$fcred.num[1] - (filter(cred.df,CondID==id) %>% arrange(.,desc(PPA)))$PPA[1]
+    delta.maxppa <- append(delta.maxppa,val1)
+    delta.num <- append(delta.num,val2)    
+  }
+  df$delta.maxppa <- delta.maxppa
+  df$delta.num <- delta.num
+  return(df)
+}
+
+
+
+```
+
+
+```{r}
+
+block3.df <- append_maxppa(block3.df,fcred3.df) 
+
+
+block1.df <- append_maxppa(block1.df,fcred1.df) 
+block1.df <- get_deltas(block1.df)
+block1.df$set <- "Imperial"
+
+block2.df <- append_maxppa(block2.df,fcred2.df)
+block2.df <- get_deltas(block2.df)
+block2.df$set <- "Combined"
+
+block4.df <- append_maxppa(block4.df,fcred4.df)
+block4.df <- get_deltas(block4.df)
+block4.df$set <- "Oxford"
+
+sub1 <- dplyr::select(block1.df,
+                      one_of("Locus.ID","maxppa",
+                             "delta.maxppa","delta.num"))
+sub2 <- dplyr::select(block2.df,
+                      one_of("Locus.ID","maxppa",
+                             "delta.maxppa","delta.num"))
+sub4 <- dplyr::select(block4.df,
+                      one_of("Locus.ID","maxppa",
+                             "delta.maxppa","delta.num"))
+
+block.df <- inner_join(block3.df,sub4,by="Locus.ID") 
+block.df <- inner_join(block.df,sub1,by="Locus.ID") 
+block.df <- inner_join(block.df,sub2,by="Locus.ID") 
+names(block.df)[19:28] <- c("maxppa.null",
+                            "maxppa.oxford","delta.maxppa.oxford","delta.num.oxford",
+                            "maxppa.imperial","delta.maxppa.imperial","delta.num.imperial",
+                            "maxppa.combined","delta.maxppa.combined","delta.num.combined")
+
+block.df <- mutate(block.df,comp=delta.maxppa.imperial-
+                     delta.maxppa.oxford)
+block.df <- mutate(block.df,comp2=delta.maxppa.combined-
+                     delta.maxppa.oxford)
+
+
+```
+
+# Comparison plots 
+
+
+```{r}
+
+library("viridis")
+
+lm_eqn <- function(df){
+    m <- lm(delta.maxppa.imperial ~ delta.maxppa.oxford, df);
+    eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2, 
+         list(a = format(coef(m)[1], digits = 2), 
+              b = format(coef(m)[2], digits = 2), 
+             r2 = format(summary(m)$r.squared, digits = 3)))
+    as.character(as.expression(eq));                 
+}
+
+sub1 <- filter(block.df,comp>0.1,delta.maxppa.imperial>0)
+sub2 <- filter(block.df,comp<(-0.1),delta.maxppa.oxford>0)
+
+plt1 <- ggplot(data=block.df,aes(x=delta.maxppa.oxford,
+                                 y=delta.maxppa.imperial)) + 
+  geom_smooth(method='lm',color="black") + 
+  geom_point(shape=21,color="grey40",fill="grey88") + 
+  geom_point(data=sub1,
+             aes(x=delta.maxppa.oxford,
+                                 y=delta.maxppa.imperial),
+             shape=21,color="black",fill=viridis(20)[3]) + 
+  geom_point(data=sub2,
+             aes(x=delta.maxppa.oxford,
+                                 y=delta.maxppa.imperial),
+             shape=21,color="black",fill=viridis(20)[10]) + 
+  geom_text(x = 0, y = -0.5, label = lm_eqn(block.df), parse = TRUE) +
+    theme_bw() + ggtitle("Islet Regulome Fine-mapping Comparison")
+
+ggsave(plot=plt1,filename=work.dir%&%"finemap1.png",height=5,width=8)
+
+
+cor.test(block.df$delta.maxppa.oxford,block.df$delta.maxppa.imperial)
+
+```
+
+
+```{r}
+lm_eqn <- function(df){
+    m <- lm(delta.maxppa.combined ~ delta.maxppa.oxford, df);
+    eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2, 
+         list(a = format(coef(m)[1], digits = 2), 
+              b = format(coef(m)[2], digits = 2), 
+             r2 = format(summary(m)$r.squared, digits = 3)))
+    as.character(as.expression(eq));                 
+}
+sub1 <- filter(block.df,comp2>0.1,delta.maxppa.combined>0)
+sub2 <- filter(block.df,comp2<(-0.1),delta.maxppa.oxford>0)
+
+
+plt2 <- ggplot(data=block.df,aes(x=delta.maxppa.oxford,
+                                 y=delta.maxppa.combined)) + 
+  geom_smooth(method='lm',color="black") + 
+  geom_point(shape=21,color="grey40",fill="grey88") + 
+
+  geom_text(x = 0, y = -0.5, label = lm_eqn(block.df), parse = TRUE) +
+    theme_bw() + ggtitle("Islet Regulome Fine-mapping Comparison")
+
+ggsave(plot=plt2,filename=work.dir%&%"finemap2.png",height=5,width=8)
+
+cor.test(block.df$delta.maxppa.oxford,block.df$delta.maxppa.combined)
+
+```
+
+
+
+```{r}
+
+sub1 <- filter(block.df,comp2>0.05)
+sub2 <- filter(block.df,comp2<(-0.05))
+library("ggrepel")
+
+plt3 <- ggplot(data=block.df,
+               aes(x=delta.maxppa.oxford,y=comp2)) + 
+  coord_cartesian(ylim=c(-0.5,0.5)) +
+  geom_point(shape=21,color="grey78",fill="grey80") + 
+  geom_point(data=sub1,
+             aes(x=delta.maxppa.oxford,y=comp2),
+             shape=21,color="black",
+             fill=viridis(20)[3]) + 
+  geom_text_repel(data=sub1,
+             aes(x=delta.maxppa.oxford,
+                 y=comp2,label=symbol),
+             size=2) + 
+  geom_point(data=sub2,
+             aes(x=delta.maxppa.oxford,y=comp2),
+             shape=21,color="grey78",
+             fill=viridis(20)[13]) + 
+  theme_bw() + ylab("delta.maxppa.combined - delta.maxppa.oxford")
+
+ggsave(plot=plt3,filename=work.dir%&%"finemap3.png",height=5,width=10)
+
+```
+
+
+```{r}
+
+improve.df <- dplyr::select(sub1,
+                            one_of("Locus.ID","symbol",
+                                   "CHR","fcred.num",
+                                   "maxppa.null",
+                                   "delta.maxppa.oxford",
+                                   "delta.maxppa.combined",
+                                   "comp2")) %>% 
+  arrange(.,desc(comp2))
+
+improve.df$maxppa.null <- map(improve.df$Locus.ID,function(id){
+  (filter(cred.df,CondID==id) %>% arrange(.,desc(PPA)))$PPA[1]
+}) %>% as.numeric(.)
+improve.df$fcred.num <- map(improve.df$Locus.ID,function(id){
+  dim(filter(cred.df,CondID==id))[1]
+}) %>% as.integer(.)
+improve.df$ppa <- improve.df$maxppa.null + improve.df$delta.maxppa.combined
+
+names(improve.df) <- c("Locus.ID","symbol","CHR","num","maxppa.null",
+                       "delta.maxppa.oxford","delta.maxppa.combined","improvement",
+                       "max.ppa")
+improve.df$maxppa.null <- prettyNum(improve.df$maxppa.null,digits=3)
+improve.df$max.ppa <- prettyNum(improve.df$max.ppa,digits=3)
+improve.df$delta.maxppa.oxford <- prettyNum(improve.df$delta.maxppa.oxford,digits=3)
+improve.df$delta.maxppa.combined <- prettyNum(improve.df$delta.maxppa.combined,digits=3)
+improve.df$improvement <- prettyNum(improve.df$improvement,digits=3)
+
+library("grid");library("gridExtra")
+
+tab <- tableGrob(improve.df)
+ggsave(plot=tab,filename=work.dir%&%"tab.png",height=20,width=20)
+grid.draw(tab)
+
+```
+
+
+```{r}
+improve.df <- dplyr::select(sub2,
+                            one_of("Locus.ID","symbol",
+                                   "CHR","fcred.num",
+                                   "maxppa.null",
+                                   "delta.maxppa.oxford",
+                                   "delta.maxppa.combined",
+                                   "comp2")) %>% 
+  arrange(.,comp2)
+
+improve.df$maxppa.null <- map(improve.df$Locus.ID,function(id){
+  (filter(cred.df,CondID==id) %>% arrange(.,desc(PPA)))$PPA[1]
+}) %>% as.numeric(.)
+improve.df$fcred.num <- map(improve.df$Locus.ID,function(id){
+  dim(filter(cred.df,CondID==id))[1]
+}) %>% as.integer(.)
+improve.df$ppa <- improve.df$maxppa.null + improve.df$delta.maxppa.combined
+
+names(improve.df) <- c("Locus.ID","symbol","CHR","num","maxppa.null",
+                       "delta.maxppa.oxford","delta.maxppa.combined","improvement",
+                       "max.ppa")
+improve.df$maxppa.null <- prettyNum(improve.df$maxppa.null,digits=3)
+improve.df$max.ppa <- prettyNum(improve.df$max.ppa,digits=3)
+improve.df$delta.maxppa.oxford <- prettyNum(improve.df$delta.maxppa.oxford,digits=3)
+improve.df$delta.maxppa.combined <- prettyNum(improve.df$delta.maxppa.combined,digits=3)
+improve.df$improvement <- prettyNum(improve.df$improvement,digits=3)
+
+library("grid");library("gridExtra")
+
+tab <- tableGrob(improve.df)
+ggsave(plot=tab,filename=work.dir%&%"tab2.png",height=20,width=20)
+grid.draw(tab)
+
+```
+
