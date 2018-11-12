@@ -13,8 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 "%&%" <- function(a,b) paste0(a,b)
 library("data.table")
-library("dplyr")
-library("ggplot2")
+library("tidyverse")
 library("GenomicRanges")
 
 serv.dir <- "/home/jason/science/servers/FUSE5/"
@@ -367,4 +366,7 @@ ggsave(plot=tab,filename=work.dir%&%"tab2.png",height=20,width=20)
 grid.draw(tab)
 
 ```
+
+
+
 

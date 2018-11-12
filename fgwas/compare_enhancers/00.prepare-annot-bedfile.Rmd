@@ -20,9 +20,9 @@ serv.dir <- "/home/jason/science/servers/FUSE5/"
 
 work.dir <- serv.dir %&% "projects/islet_hubs/"
 
-oxf.df <- fread(work.dir %&% "fgwas/imperial_annotations/fgwas_input/" %&% 
+imp.df <- fread(work.dir %&% "fgwas/imperial_annotations/fgwas_input/" %&% 
                   "imperial-annotations.bed")
-imp.df <- fread(work.dir %&% "fgwas/oxford_and_imperial/fgwas_input/" %&% 
+oxf.df <- fread(work.dir %&% "fgwas/oxford_and_imperial/fgwas_input/" %&% 
                   "annot_input-impoxf.bed")
 
 annot.df <- rbind(oxf.df,imp.df)
@@ -38,9 +38,11 @@ make_gr <- function(df){
   return(gr)
 }
 
-gr1 <- filter(annot.df,V4=="islet_activated_strong_enhancer") %>% 
+#gr1 <- filter(annot.df,V4=="islet_activated_strong_enhancer") %>% 
+#  make_gr(.) %>% reduce(.)
+gr1 <- filter(annot.df,V4=="islet_state8") %>% 
   make_gr(.) %>% reduce(.)
-gr2 <- filter(annot.df,V4=="Active_enhancers_I") %>% make_gr(.) %>%
+gr2 <- filter(annot.df,V4=="HUB_Active_enhancers_I") %>% make_gr(.) %>%
   reduce(.)
 
 
@@ -49,7 +51,7 @@ oxf.gr <- gr1[!(gr1 %over% both.gr)] %>% reduce(.)
 imp.gr <- gr2[!(gr2 %over% both.gr)] %>% reduce(.)
 
 a <- length(both.gr); b <- length(oxf.gr); c <- length(imp.gr)
-t <- a+b+c # 33640
+t <- a+b+c # 33290
 
 both.df <- both.gr %>% as.data.frame(.) %>% 
   dplyr::select(.,one_of("seqnames","start","end"))
@@ -58,8 +60,8 @@ oxf.df <- oxf.gr %>% as.data.frame(.) %>%
 imp.df <- imp.gr %>% as.data.frame(.) %>% 
   dplyr::select(.,one_of("seqnames","start","end"))
 both.df$V4 <- "shared"
-oxf.df$V4 <- "oxford_active_enhancer"
-imp.df$V4 <- "imperial_active_enhancer"
+oxf.df$V4 <- "strong_activated_enhancer_Thurner"
+imp.df$V4 <- "Hub_active_enhancer_I"
 
 out.df <- rbind(oxf.df,imp.df,both.df)
 
