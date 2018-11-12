@@ -1,0 +1,219 @@
+---
+title: "finemap-isletHubs.Rmd"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup 
+
+
+```{r}
+
+"%&%" <- function(a,b) paste0(a,b)
+library("data.table")
+library("tidyverse")
+library("GenomicRanges")
+
+serv.dir <- "/home/jason/science/servers/FUSE5/"
+cred.df <- fread(serv.dir %&% "projects/t2d_classification/method_C/genetic_credible_sets/gencred.txt")
+work.dir <- serv.dir %&% "projects/islet_hubs/fgwas/"
+
+
+```
+
+
+```{r}
+
+sig.df <- filter(cred.df,PPA>0.5)
+sig.gr <- GRanges(seqnames = sig.df$CHR, 
+                  IRanges(start=sig.df$POS,end=sig.df$POS))
+names(sig.gr) <- sig.df$SNPID
+
+```
+
+
+```{r}
+
+data.dir <- serv.dir %&% "projects/islet_hubs/input_data/"
+ehub.df <- fread(data.dir %&% "hub_annotations_ActivePromotersActiveEnhancers_for_Jason.bed")
+ehub.gr <- GRanges(seqnames = ehub.df$V1, 
+                  IRanges(start=ehub.df$V2,end=ehub.df$V3))
+names(ehub.gr) <- ehub.df$V4
+
+overlap.gr <- sig.gr %over% ehub.gr
+inte <- intersect(sig.gr,ehub.gr)
+
+```
+
+
+```{r}
+
+hub.df <- fread(serv.dir %&% "datasets/from_Jorge/Islet_enhancer_hubs.txt")
+vec <- hub.df$HUB_coord
+c.vec <- map(vec,function(s){
+  strsplit(s,split=":")[[1]][1]
+}) %>% as.character(.)
+start.vec <- map(vec,function(s){
+  (strsplit(s,split=":")[[1]][2] %>% strsplit(.,split="-"))[[1]][1]
+}) %>% as.character(.)
+end.vec <- map(vec,function(s){
+  (strsplit(s,split=":")[[1]][2] %>% strsplit(.,split="-"))[[1]][2]
+}) %>% as.character(.)
+hub.bed <- data.frame(V1=c.vec,V2=start.vec,V3=end.vec,V4=hub.df$HUB_ID,
+                      stringsAsFactors = FALSE)
+hub.bed <- hub.bed[!duplicated(hub.bed),]
+write.table(x=hub.bed,file=work.dir%&%"islet_hubs.bed",
+            sep="\t",quote=F,row.names=F,col.names=F)
+```
+
+
+```{r}
+
+append_hub_info <- function(df){
+  hub.vec <- c()
+  annot.vec <- c()
+  gene.vec <- c()
+  pb <- txtProgressBar(min=0,max=dim(df)[1],style=3)
+  for (i in 1:dim(df)[1]){
+    setTxtProgressBar(pb,i)
+    print(i)
+    sub <- df[i,]
+    c <- sub$CHR; p <- sub$POS
+    h <- filter(hub.bed,V1==c,V2<=p,V3>=p)$V4
+    g <- ifelse(length(h)==0,NA,filter(hub.df,HUB_ID==h)$genes)
+    a <- filter(ehub.df,V1==c,V2<=p,V3>=p)$V4
+    h <- ifelse(length(h)==0,NA,h)
+    a <- ifelse(length(a)==0,NA,a)
+    hub.vec <- append(hub.vec,h)
+    annot.vec <- append(annot.vec,a)
+    gene.vec <- append(gene.vec,g)
+  }
+  df$hub <- hub.vec
+  df$hubAnnot <- annot.vec
+  df$genes <- gene.vec
+  return(df)
+}
+
+sig.df <- append_hub_info(sig.df)
+write.table(x=sig.df,file=work.dir%&%"finemap-hubs.txt",sep="\t",quote=F,row.names=F)
+
+omit.df <- filter(sig.df,!is.na(hubAnnot))
+write.table(x=omit.df,file=work.dir%&%"finemap-hubs-pruned.txt",sep="\t",quote=F,row.names=F)
+
+sig.bg <- data.frame(V1=sig.df$CHR,V2=sig.df$POS,V3=sig.df$POS,V4=sig.df$PPA)
+write.table(x=sig.bg,file=work.dir%&%"credSNPsPPA50.bg",sep="\t",quote=F,
+            row.names=F,col.names=F)
+
+```
+
+
+```{r}
+
+reg.df <- fread(data.dir %&% "Islet_regulome_simplified.bed")
+cvec <- c("157,167,204","2,56,255","252,22,53","255,249,198",
+          "255,227,0","135,121,6","255,239,109")
+name.df <- data.frame(Annotation=unique(reg.df$V4),
+                      RGB=cvec,stringsAsFactors = F)
+reg.df$V5 <- "0"; reg.df$V6 <- "."; reg.df$V7 <- reg.df$V2; reg.df$V8 <- reg.df$V3
+reg.df$V9 <- map(reg.df$V4,function(annot){filter(name.df,Annotation==annot)$RGB}) %>% 
+  as.character(.)
+write.table(x=reg.df,file=work.dir%&%"Islet_regulome_simplified-RGB.bed",
+            sep="\t",quote=F,row.names=F,col.names=F)
+
+```
+
+
+```{r}
+
+ehub.df$V5 <- "0"; ehub.df$V6 <- "."; ehub.df$V7 <- ehub.df$V2; ehub.df$V8 <- ehub.df$V3
+ehub.df$V9 <- map(ehub.df$V4,function(annot){filter(name.df,Annotation==annot)$RGB}) %>% 
+  as.character(.)
+write.table(x=ehub.df,file=work.dir%&%"hub_annotations_ActivePromotersActiveEnhancers-RGB.bed",
+            sep="\t",quote=F,row.names=F,col.names=F)
+```
+
+
+```{r}
+
+hub.df <- fread(serv.dir %&% "datasets/from_Jorge/Islet_enhancer_hubs.txt")
+vec <- hub.df$HUB_coord
+c.vec <- map(vec,function(s){
+  strsplit(s,split=":")[[1]][1]
+}) %>% as.character(.)
+start.vec <- map(vec,function(s){
+  (strsplit(s,split=":")[[1]][2] %>% strsplit(.,split="-"))[[1]][1]
+}) %>% as.character(.)
+end.vec <- map(vec,function(s){
+  (strsplit(s,split=":")[[1]][2] %>% strsplit(.,split="-"))[[1]][2]
+}) %>% as.character(.)
+hub.bed <- data.frame(V1=c.vec,V2=start.vec,V3=end.vec,V4=hub.df$HUB_ID,
+                      stringsAsFactors = FALSE)
+hub.bed <- hub.bed[!duplicated(hub.bed),]
+write.table(x=hub.bed,file=work.dir%&%"islet_hubs.bed",
+            sep="\t",quote=F,row.names=F,col.names=F)
+```
+
+
+# Build Interaction File 
+
+
+```{r}
+
+library("scales")
+hic.df <- fread(serv.dir %&% "datasets/from_Jorge/Islet_pcHiC_washU.txt",sep="\t")
+chrom <- map(hic.df$V1,function(s){
+  strsplit(s,",")[[1]][1]
+}) %>% as.character(.)
+chromStart <- map(hic.df$V1,function(s){
+  strsplit(s,",")[[1]][2]
+}) %>% as.integer(.)
+chromEnd <- map(hic.df$V2,function(s){
+  strsplit(s,",")[[1]][3]
+}) %>% as.integer(.)
+name <- "pcHiC"
+score <- rescale(hic.df$V3,to=c(0,1000))
+value <- hic.df$V3
+exp <- "Islet_pcHiC_Imperial"
+color <- "10,39,84"
+sourceChrom <- chrom
+sourceStart <- map(hic.df$V1,function(s){
+  strsplit(s,",")[[1]][2]
+}) %>% as.integer(.)
+sourceEnd <- map(hic.df$V1,function(s){
+  strsplit(s,",")[[1]][3]
+}) %>% as.integer(.)
+sourceName <- "Source"
+sourceStrand <- "."
+targetChrom <- map(hic.df$V2,function(s){
+  strsplit(s,",")[[1]][1]
+}) %>% as.character(.)
+targetStart <- map(hic.df$V2,function(s){
+  strsplit(s,",")[[1]][2]
+}) %>% as.integer(.)
+targetEnd <- map(hic.df$V2,function(s){
+  strsplit(s,",")[[1]][3]
+}) %>% as.integer(.)
+targetName <- "Target"
+targetStrand <- "."
+
+int.bed <- data.frame(chrom,chromStart,chromEnd,name,score,value,
+                      exp,color,sourceChrom,sourceStart,sourceEnd,
+                      sourceName,sourceStrand,targetChrom,targetStart,
+                      targetEnd,targetName,targetStrand,stringsAsFactors = F)
+
+int.bed <- data.frame(chrom,sourceStart,sourceEnd,V4=".",score,value,
+                      V7=".",V8="0",targetChrom,targetStart,targetEnd,
+                      V12=".",V13=".",chrom,sourceStart,sourceEnd,
+                      V17=".",V18=".",stringsAsFactors = F)
+int.bed$score <- round(int.bed$score)
+int.bed$value <- round(int.bed$value)
+write.table(x=int.bed,file=work.dir%&%"islet_pcHic.inter.bed",
+            sep="\t",quote=F,row.names=F,col.names=F)
+```
+
+
+
+

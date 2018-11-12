@@ -1,0 +1,146 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+
+```{r}
+
+"%&%" <- function(a,b) paste0(a,b)
+
+library("tidyverse")
+library("data.table")
+
+serv.dir <- "/home/jason/science/servers/FUSE5/"
+work.dir <- serv.dir %&% "projects/islet_hubs/"
+
+df1 <- fread("cat " %&% work.dir %&%
+               "fgwas/imperial_annotations/fgwas_input/ukbb_diamante-euro.fgwas.gz" %&% " | zmore")
+df2 <- fread("cat " %&% work.dir %&%
+               "fgwas/oxford_and_imperial/fgwas_input/ukbb_diamante-euro.fgwas.gz" %&% " | zmore")
+
+```
+
+# GWAS profile 
+
+
+```{r}
+
+dim(df1)[1] # 10,161,241 SNPs
+pb <- txtProgressBar(min=0,max=length(df1$F),style=3)
+maf <- map(1:length(df1$F),function(i){
+  setTxtProgressBar(pb,i)
+  f <- df1$F[i]
+  ifelse(f<0.5,f,1-f)
+}) %>% as.numeric(.)
+
+str(maf)
+
+```
+
+```{r}
+
+build_inventory_df <- function(df){
+  df <- as.data.frame(df,stringsAsFactors=F)
+  Annotation <- names(df)[10:(dim(df)[2]-1)]
+  Count <- map(Annotation,function(a){
+    print(a)
+    sub <- dplyr::select(as.data.frame(df),one_of(a)) #%>% as.numeric(.) %>% sum(.)
+    sub[,1] %>% sum(.)
+  }) %>% as.integer(.)
+  Pct <- (Count / (dim(df)[1])) * 100
+  out.df <- data.frame(Annotation,Count,Pct,stringsAsFactors=F)
+  return(out.df)
+}
+
+```
+
+
+```{r}
+
+plot.file <- serv.dir %&% "projects/islet_hubs/Thurner-name-key.txt"
+key.df <- fread(plot.file)
+
+library("grid");library("gridExtra")
+plt.df1 <- build_inventory_df(df1)
+plt.df1$Pct <- prettyNum(plt.df1$Pct,digits=2)
+plt.df2 <- build_inventory_df(df2)
+plt.df2$Pct <- prettyNum(plt.df2$Pct,digits=2)
+plt.df2$Annotation <- map(plt.df2$Annotation,function(annot){
+  val <- filter(key.df,ShortName==annot)$FullName
+  ifelse(length(val)==0,annot,val)
+}) %>% as.character(.)
+
+remove.vec <- c("promoter","exon","intron","transcript","utr_3","utr_5")
+plt.df2 <- filter(plt.df2,!(Annotation %in% remove.vec))
+
+tab1 <- tableGrob(plt.df1)
+tab2 <- tableGrob(plt.df2)
+
+ggsave(plot=tab1,filename = work.dir %&% "inventory-imp-gwas.png",height=10,width=10)
+ggsave(plot=tab2,filename = work.dir %&% "inventory-oxf-imp-gwas.png",height=10,width=10)
+
+```
+
+
+
+hubs 
+
+```{r}
+
+data.dir <- serv.dir %&% "projects/islet_hubs/input_data/"
+
+```
+
+
+```{r}
+
+reg.df <- fread(data.dir %&% "Islet_regulome_simplified.bed")
+
+tab.reg.df <- table(reg.df$V4) %>% as.data.frame(.)
+tab.reg.df$Pct <- tab.reg.df$Freq/sum(tab.reg.df$Freq) * 100 
+tab.reg.df$Pct <- prettyNum(tab.reg.df$Pct,digits=2)
+names(tab.reg.df) <- c("Annotation","Count","Pct")
+reg.grob <- tableGrob(tab.reg.df)
+ggsave(plot=reg.grob,filename = work.dir %&% "inventory-regulome.png",height=10,width=10)
+
+```
+
+
+```{r}
+
+ehub.df <- fread(data.dir %&% "hub_annotations_ActivePromotersActiveEnhancers_for_Jason.bed")
+
+tab.ehub.df <- table(ehub.df$V4) %>% as.data.frame(.)
+tab.ehub.df$Pct <- tab.ehub.df$Freq/sum(tab.ehub.df$Freq) * 100 
+tab.ehub.df$Pct <- prettyNum(tab.ehub.df$Pct,digits=3)
+names(tab.ehub.df) <- c("Annotation","Count","Pct")
+ehub.grob <- tableGrob(tab.ehub.df)
+ggsave(plot=ehub.grob,filename = work.dir %&% "inventory-eHubs.png",height=10,width=10)
+
+```
+
+
+
+
+
+
+```{r}
+
+df3 <- fread("cat " %&% work.dir %&%
+               "fgwas/compare_enhancers/fgwas_input/ukbb_diamante-euro.fgwas.gz" %&% " | zmore")
+anno <- fread("cat " %&% work.dir %&%
+               "fgwas/compare_enhancers/fgwas_input/anno-input.bed" %&% " | zmore")
+
+tab3 <- anno$V4  %>% table(.) %>% as.data.frame(.)
+tab3$Pct <- ((tab3$Freq / sum(tab3$Freq)) * 100) %>% prettyNum(.,digits=2)
+tg <- tableGrob(tab3)
+ggsave(plot=tg,filename = work.dir %&% "inventory-comp.png",height=10,width=10)
+
+plt.df3 <- build_inventory_df(df3)
+plt.df3$Pct <- prettyNum(plt.df3$Pct,digits=2)
+tab3 <- tableGrob(plt.df3)
+ggsave(plot=tab3,filename = work.dir %&% "inventory-comp-gwas.png",height=10,width=10)
+
+```
+
